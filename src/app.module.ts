@@ -21,6 +21,7 @@ import { FirestoreModule } from './firestore/firestore.module';
       inject: [ConfigService],
     }),
     PingModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

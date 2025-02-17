@@ -34,6 +34,7 @@ export class AuthMiddleware implements NestMiddleware {
       const authorization =
         req.headers['Authorization'] || req.headers['authorization'];
       if (!authorization) {
+        console.log('no authorization');
         req.user = null;
         next();
         return;
@@ -41,6 +42,7 @@ export class AuthMiddleware implements NestMiddleware {
       req.user = await this.authenticate(authorization);
       next();
     } catch (err) {
+      console.log('error', err);
       req.user = null;
       next();
     }

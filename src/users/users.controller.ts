@@ -1,3 +1,4 @@
+import { AuthGuard } from './../auth/auth.guard';
 import { Controller, Get, UseGuards, Request, Post } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { cp } from 'fs';
@@ -7,8 +8,8 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get('me')
-  me() {
-    return this.usersService.me();
+  me(@Request() req) {
+    return this.usersService.me(req);
   }
 
   @Post()

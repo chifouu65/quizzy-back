@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, RequestMethod } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
@@ -7,6 +7,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import * as admin from 'firebase-admin';
 import { readFileSync } from 'fs';
 import { FirestoreModule } from './firestore/firestore.module';
+import { AuthMiddleware } from './auth/auth.middleware';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -22,6 +24,7 @@ import { FirestoreModule } from './firestore/firestore.module';
     }),
     PingModule,
     UsersModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
@@ -38,4 +41,11 @@ export class AppModule {
       credential: admin.credential.cert(serviceAccount),
     });
   }
+
+  public configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(AuthMiddleware)
+      .forRoutes({ path: '*', method: RequestMethod.ALL });
+  }
+
 }

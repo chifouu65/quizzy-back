@@ -17,4 +17,9 @@ describe('UsersController', () => {
   it('should be defined', () => {
     expect(controller).toBeDefined();
   });
+
+  it('should return user me', () => {
+    const result = controller.me();
+    expect(result).toEqual('me');
+  });
 });

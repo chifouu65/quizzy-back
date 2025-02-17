@@ -1,12 +1,18 @@
-import { Controller, Get, Req } from '@nestjs/common';
+import { Controller, Get, UseGuards, Request, Post } from '@nestjs/common';
 import { UsersService } from './users.service';
+import { cp } from 'fs';
 
-@Controller('users')
+@Controller('api/users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get('me')
-  me(@Req() req: Request) {
-    return this.usersService.me(req);
+  me() {
+    return this.usersService.me();
+  }
+
+  @Post()
+  create(@Request() req) {
+    return this.usersService.create(req);
   }
 }

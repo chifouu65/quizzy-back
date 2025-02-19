@@ -9,6 +9,7 @@ import { readFileSync } from 'fs';
 import { FirestoreModule } from './firestore/firestore.module';
 import { AuthMiddleware } from './auth/auth.middleware';
 import { AuthModule } from './auth/auth.module';
+import { QuizModule } from './quiz/quiz.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { AuthModule } from './auth/auth.module';
     PingModule,
     UsersModule,
     AuthModule,
+    QuizModule,
   ],
   controllers: [AppController],
   providers: [AppService],

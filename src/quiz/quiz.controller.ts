@@ -13,6 +13,8 @@ import {
   Patch,
   HttpCode,
   Header,
+  UseGuards,
+  Req,
 } from '@nestjs/common';
 import { QuizService } from './quiz.service';
 import { Auth } from '../auth/auth.decorator';
@@ -20,11 +22,11 @@ import { RequestWithUser } from '../auth/model/request-with-user';
 import { CreateQuizDto } from './dto/create-quiz.dto';
 import { UpdateQuizDto } from './dto/update-quiz.dto';
 import { CreateQuestionDto } from './dto/create-question.dto';
-
+import { AuthGuard } from '../auth/auth.guard';
 
 @Controller('api/quiz')
 export class QuizController {
-  constructor(private readonly quizService: QuizService) {}
+  constructor(private readonly quizService: QuizService) { }
 
   /** 🔹 GET /api/quiz/ - Récupère les quiz de l'utilisateur connecté */
   @Get()
@@ -98,7 +100,7 @@ export class QuizController {
       if (!req.user || !req.user.uid) {
         throw new UnauthorizedException('User not authenticated');
       }
- 
+
       const quiz = await this.quizService.updateQuiz(
         id,
         updateQuizDto,
@@ -122,12 +124,12 @@ export class QuizController {
       }
 
       const questionId = await this.quizService.addQuestion(id, req.user.uid, question);
-      
+
       // Définir le header Location avec l'ID de la question
       const location = `/api/quiz/${id}/questions/${questionId}`;
-      return { 
+      return {
         id: questionId,
-        location: location 
+        location: location
       };
     } catch (error) {
       if (error instanceof NotFoundException) {
@@ -138,5 +140,20 @@ export class QuizController {
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
+  }
+
+  @UseGuards(AuthGuard)
+  @Put(':quizId/questions/:questionId')
+  async updateQuestion(
+    @Param('quizId') quizId: string,
+    @Param('questionId') questionId: string,
+    @Body() updateQuestionDto: any,
+    @Req() req: RequestWithUser
+  ): Promise<void> {
+    if (!req.user || !req.user.uid) {
+      throw new UnauthorizedException('User not authenticated');
+    }
+    const userId = req.user.uid;
+    await this.quizService.updateQuestion(quizId, questionId, updateQuestionDto, userId);
   }
 }

@@ -114,17 +114,17 @@ export class QuizService {
         .firestore()
         .collection(this.QUIZ_COLLECTION)
         .doc(quizId);
- 
+
       const quizDoc = await quizRef.get();
- 
+
       if (!quizDoc.exists || quizDoc.data().ownerId !== userId) {
         throw new NotFoundException('Quiz not found');
       }
- 
+
       await quizRef.update({
         title: updateQuizDto[0].value,
       });
- 
+
       return quizRef.get();
     } catch (error) {
       if (error instanceof NotFoundException) {
@@ -177,6 +177,48 @@ export class QuizService {
         throw error;
       }
       throw new Error(`Failed to add question: ${error.message}`);
+    }
+  }
+
+  async updateQuestion(quizId: string, questionId: string, updateQuestionDto: any, userId: string): Promise<void> {
+    try {
+      const quizRef = admin
+        .firestore()
+        .collection(this.QUIZ_COLLECTION)
+        .doc(quizId);
+
+      const quizDoc = await quizRef.get();
+
+      if (!quizDoc.exists || quizDoc.data().ownerId !== userId) {
+        throw new NotFoundException('Quiz not found');
+      }
+
+      const quizData = quizDoc.data();
+      const questions = quizData.questions || [];
+
+      const questionIndex = questions.findIndex(q => q.id === questionId);
+      if (questionIndex === -1) {
+        throw new NotFoundException('Question not found');
+      }
+
+      questions[questionIndex] = {
+        ...questions[questionIndex],
+        ...updateQuestionDto,
+        updatedAt: admin.firestore.Timestamp.now()
+      };
+
+      await quizRef.update({
+        questions: questions,
+        updatedAt: admin.firestore.Timestamp.now()
+      });
+
+      console.log(`✅ Question mise à jour avec succès, ID: ${questionId}`);
+    } catch (error) {
+      console.error(`🚨 Erreur lors de la mise à jour de la question:`, error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new Error(`Failed to update question: ${error.message}`);
     }
   }
 }

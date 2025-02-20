@@ -98,7 +98,6 @@ export class QuizService {
         createdAt: quizData.createdAt,
         updatedAt: quizData.updatedAt,
         questions: quizData.questions || [],
-        questions: quizData.questions || [],
       } as Quiz;
     } catch (error) {
       if (error instanceof NotFoundException) {

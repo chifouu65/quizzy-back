@@ -6,7 +6,6 @@ import { PingModule } from './ping/ping.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import * as admin from 'firebase-admin';
 import { readFileSync } from 'fs';
-import { FirestoreModule } from './firestore/firestore.module';
 import { AuthMiddleware } from './auth/auth.middleware';
 import { AuthModule } from './auth/auth.module';
 import { QuizModule } from './quiz/quiz.module';
@@ -15,13 +14,6 @@ import { QuizModule } from './quiz/quiz.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-    }),
-    FirestoreModule.forRoot({
-      imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        key: configService.get<string>('SA_KEY'),
-      }),
-      inject: [ConfigService],
     }),
     PingModule,
     UsersModule,

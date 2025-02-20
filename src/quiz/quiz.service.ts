@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { Quiz } from './models/quiz.model';
 import { CreateQuizDto } from './dto/create-quiz.dto';
 import * as admin from 'firebase-admin';

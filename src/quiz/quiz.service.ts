@@ -6,6 +6,7 @@ import {
 import { Quiz } from './models/quiz.model';
 import { CreateQuizDto } from './dto/create-quiz.dto';
 import * as admin from 'firebase-admin';
+//import { updateQuizDto } from './dto/update-quiz.dto';
 
 @Injectable()
 export class QuizService {
@@ -84,6 +85,7 @@ export class QuizService {
 
       const quizData = quizDoc.data();
 
+
       if (quizData.ownerId !== userId) {
         throw new NotFoundException('Quiz not found');
       }
@@ -95,6 +97,7 @@ export class QuizService {
         ownerId: quizData.ownerId,
         createdAt: quizData.createdAt,
         updatedAt: quizData.updatedAt,
+        questions: quizData.questions || [],
         questions: quizData.questions || [],
       } as Quiz;
     } catch (error) {

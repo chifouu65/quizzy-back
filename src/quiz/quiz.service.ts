@@ -6,6 +6,8 @@ import {
 import { Quiz } from './models/quiz.model';
 import { CreateQuizDto } from './dto/create-quiz.dto';
 import * as admin from 'firebase-admin';
+import { CreateQuestionDto } from './dto/create-question.dto';
+
 //import { updateQuizDto } from './dto/update-quiz.dto';
 
 @Injectable()
@@ -129,6 +131,52 @@ export class QuizService {
         throw error;
       }
       throw new Error(`Failed to update quiz: ${error.message}`);
+    }
+  }
+
+  async addQuestion(quizId: string, userId: string, question: CreateQuestionDto): Promise<string> {
+    try {
+      const quizRef = admin
+        .firestore()
+        .collection(this.QUIZ_COLLECTION)
+        .doc(quizId);
+
+      const quizDoc = await quizRef.get();
+
+      if (!quizDoc.exists || quizDoc.data().ownerId !== userId) {
+        throw new NotFoundException('Quiz not found');
+      }
+
+      // Récupérer les questions existantes
+      const quizData = quizDoc.data();
+      const questions = quizData.questions || [];
+
+      // Créer la nouvelle question avec un ID unique
+      const newQuestion = {
+        id: admin.firestore().collection('temp').doc().id, // Génère un ID unique
+        title: question.title,
+        answers: question.answers,
+        createdAt: admin.firestore.Timestamp.now(),
+        updatedAt: admin.firestore.Timestamp.now()
+      };
+
+      // Ajouter la nouvelle question à la liste
+      questions.push(newQuestion);
+
+      // Mettre à jour le document avec la nouvelle liste de questions
+      await quizRef.update({
+        questions: questions,
+        updatedAt: admin.firestore.Timestamp.now()
+      });
+
+      console.log(`✅ Question ajoutée avec succès, ID: ${newQuestion.id}`);
+      return newQuestion.id; // Retourne l'ID de la nouvelle question
+    } catch (error) {
+      console.error(`🚨 Erreur lors de l'ajout de la question:`, error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new Error(`Failed to add question: ${error.message}`);
     }
   }
 }

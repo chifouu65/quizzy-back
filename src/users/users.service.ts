@@ -18,6 +18,7 @@ export class UsersService {
         password: req.password,
         emailVerified: false,
         disabled: false,
+        displayName: req.email,
       });
 
       return userRecord;

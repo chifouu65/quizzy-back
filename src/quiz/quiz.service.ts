@@ -65,4 +65,39 @@ export class QuizService {
 
     return snapshot.size;
   }
+
+  async getQuizById(quizId: string, userId: string): Promise<Quiz> {
+    try {
+      const quizDoc = await admin
+        .firestore()
+        .collection(this.QUIZ_COLLECTION)
+        .doc(quizId)
+        .get();
+
+      if (!quizDoc.exists) {
+        throw new NotFoundException('Quiz not found');
+      }
+
+      const quizData = quizDoc.data();
+      
+      if (quizData.ownerId !== userId) {
+        throw new NotFoundException('Quiz not found');
+      }
+
+      return {
+        id: quizDoc.id,
+        title: quizData.title,
+        description: quizData.description,
+        ownerId: quizData.ownerId,
+        createdAt: quizData.createdAt,
+        updatedAt: quizData.updatedAt,
+        questions: quizData.questions || []
+      } as Quiz;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new Error(`Failed to get quiz: ${error.message}`);
+    }
+  }
 }

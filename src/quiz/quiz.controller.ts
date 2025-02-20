@@ -14,6 +14,7 @@ import {
   Header,
   UseGuards,
   Req,
+  Put,
 } from '@nestjs/common';
 import { QuizService } from './quiz.service';
 import { RequestWithUser } from '../auth/model/request-with-user';
@@ -149,7 +150,6 @@ export class QuizController {
     }
   }
 
-  @UseGuards(AuthGuard)
   @Put(':quizId/questions/:questionId')
   async updateQuestion(
     @Param('quizId') quizId: string,

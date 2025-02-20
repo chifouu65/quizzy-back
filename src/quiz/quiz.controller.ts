@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Request, HttpException, HttpStatus, Body } from '@nestjs/common';
+import { Controller, Get, Post, Request, HttpException, HttpStatus, Body, Param, UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { QuizService } from './quiz.service';
 import { Auth } from '../auth/auth.decorator';
 import { RequestWithUser } from '../auth/model/request-with-user';
@@ -41,6 +41,27 @@ export class QuizController {
       const quiz = await this.quizService.createQuiz(createQuizDto, userId);
       return { data: quiz };
     } catch (error) {
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  @Get(':id')
+  async getQuizById(@Param('id') id: string, @Request() req: RequestWithUser) {
+    try {
+      if (!req.user || !req.user.uid) {
+        throw new UnauthorizedException('User not authenticated');
+      }
+
+      const quiz = await this.quizService.getQuizById(id, req.user.uid);
+      return {
+        title: quiz.title,
+        description: quiz.description,
+        questions: quiz.questions
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw new HttpException('Quiz not found', HttpStatus.NOT_FOUND);
+      }
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }

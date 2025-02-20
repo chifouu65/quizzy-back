@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Quiz } from './models/quiz.model';
 import { CreateQuizDto } from './dto/create-quiz.dto';
 import * as admin from 'firebase-admin';
@@ -79,7 +83,7 @@ export class QuizService {
       }
 
       const quizData = quizDoc.data();
-      
+
       if (quizData.ownerId !== userId) {
         throw new NotFoundException('Quiz not found');
       }
@@ -91,13 +95,39 @@ export class QuizService {
         ownerId: quizData.ownerId,
         createdAt: quizData.createdAt,
         updatedAt: quizData.updatedAt,
-        questions: quizData.questions || []
+        questions: quizData.questions || [],
       } as Quiz;
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
       }
       throw new Error(`Failed to get quiz: ${error.message}`);
+    }
+  }
+
+  async updateQuiz(quizId: string, updateQuizDto: any, userId: string) {
+    try {
+      const quizRef = admin
+        .firestore()
+        .collection(this.QUIZ_COLLECTION)
+        .doc(quizId);
+
+      const quizDoc = await quizRef.get();
+
+      if (!quizDoc.exists || quizDoc.data().ownerId !== userId) {
+        throw new NotFoundException('Quiz not found');
+      }
+
+      await quizRef.update({
+        title: updateQuizDto[0].value,
+      });
+
+      return quizRef.get();
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new Error(`Failed to update quiz: ${error.message}`);
     }
   }
 }

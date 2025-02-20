@@ -1,4 +1,16 @@
-import { Controller, Get, Post, Request, HttpException, HttpStatus, Body, Param, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Request,
+  HttpException,
+  HttpStatus,
+  Body,
+  Param,
+  UnauthorizedException,
+  NotFoundException,
+  Patch,
+} from '@nestjs/common';
 import { QuizService } from './quiz.service';
 import { Auth } from '../auth/auth.decorator';
 import { RequestWithUser } from '../auth/model/request-with-user';
@@ -22,7 +34,13 @@ export class QuizController {
       console.log('👤 Utilisateur ID:', userId);
       const quizzes = await this.quizService.getUserQuizzes(userId);
       console.log('📦 Quiz récupérés:', quizzes);
-      return { data: quizzes };
+
+      // Add HATEOAS link
+      const links = {
+        create: '/api/quiz', // Link to the POST endpoint for creating a quiz
+      };
+
+      return { data: quizzes, _links: links };
     } catch (error) {
       console.error('🚨 Erreur lors de la récupération des quizs:', error);
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -31,7 +49,10 @@ export class QuizController {
 
   /** 🔹 POST /api/quiz - Crée un nouveau quiz */
   @Post()
-  async createQuiz(@Body() createQuizDto: CreateQuizDto, @Request() req: RequestWithUser) {
+  async createQuiz(
+    @Body() createQuizDto: CreateQuizDto,
+    @Request() req: RequestWithUser,
+  ) {
     try {
       if (!req.user || !req.user.uid) {
         throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
@@ -56,12 +77,34 @@ export class QuizController {
       return {
         title: quiz.title,
         description: quiz.description,
-        questions: quiz.questions
+        questions: quiz.questions,
       };
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw new HttpException('Quiz not found', HttpStatus.NOT_FOUND);
       }
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  @Patch(':id')
+  async updateQuiz(
+    @Param('id') id: string,
+    @Body() updateQuizDto: any,
+    @Request() req: RequestWithUser,
+  ) {
+    try {
+      if (!req.user || !req.user.uid) {
+        throw new UnauthorizedException('User not authenticated');
+      }
+
+      const quiz = await this.quizService.updateQuiz(
+        id,
+        updateQuizDto,
+        req.user.uid,
+      );
+      return { data: quiz };
+    } catch (error) {
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }

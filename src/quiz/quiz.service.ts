@@ -85,7 +85,6 @@ export class QuizService {
 
       const quizData = quizDoc.data();
 
-
       if (quizData.ownerId !== userId) {
         throw new NotFoundException('Quiz not found');
       }

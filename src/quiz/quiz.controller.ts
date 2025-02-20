@@ -12,7 +12,6 @@ import {
   Patch,
 } from '@nestjs/common';
 import { QuizService } from './quiz.service';
-import { Auth } from '../auth/auth.decorator';
 import { RequestWithUser } from '../auth/model/request-with-user';
 import { CreateQuizDto } from './dto/create-quiz.dto';
 
@@ -37,10 +36,13 @@ export class QuizController {
 
       // Add HATEOAS link
       const links = {
-        create: '/api/quiz', // Link to the POST endpoint for creating a quiz
+        create: 'http://localhost:3000/api/quiz/',
       };
 
-      return { data: quizzes, _links: links };
+      return {
+        data: quizzes,
+        _links: links,
+      };
     } catch (error) {
       console.error('🚨 Erreur lors de la récupération des quizs:', error);
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);

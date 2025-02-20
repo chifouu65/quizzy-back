@@ -1,8 +1,22 @@
-import { Controller, Get, Post, Request, HttpException, HttpStatus, Body, Param, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Request,
+  HttpException,
+  HttpStatus,
+  Body,
+  Param,
+  UnauthorizedException,
+  NotFoundException,
+  Put,
+  Patch,
+} from '@nestjs/common';
 import { QuizService } from './quiz.service';
 import { Auth } from '../auth/auth.decorator';
 import { RequestWithUser } from '../auth/model/request-with-user';
 import { CreateQuizDto } from './dto/create-quiz.dto';
+import { UpdateQuizDto } from './dto/update-quiz.dto';
 
 @Controller('api/quiz')
 export class QuizController {
@@ -31,7 +45,10 @@ export class QuizController {
 
   /** 🔹 POST /api/quiz - Crée un nouveau quiz */
   @Post()
-  async createQuiz(@Body() createQuizDto: CreateQuizDto, @Request() req: RequestWithUser) {
+  async createQuiz(
+    @Body() createQuizDto: CreateQuizDto,
+    @Request() req: RequestWithUser,
+  ) {
     try {
       if (!req.user || !req.user.uid) {
         throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
@@ -56,12 +73,35 @@ export class QuizController {
       return {
         title: quiz.title,
         description: quiz.description,
-        questions: quiz.questions
+        questions: quiz.questions,
       };
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw new HttpException('Quiz not found', HttpStatus.NOT_FOUND);
       }
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /** 🔹 PATCH /api/quiz/:id - Met à jour un quiz existant */
+  @Patch(':id')
+  async updateQuiz(
+    @Param('id') id: string,
+    @Body() updateQuizDto: any,
+    @Request() req: RequestWithUser,
+  ) {
+    try {
+      if (!req.user || !req.user.uid) {
+        throw new UnauthorizedException('User not authenticated');
+      }
+ 
+      const quiz = await this.quizService.updateQuiz(
+        id,
+        updateQuizDto,
+        req.user.uid,
+      );
+      return { data: quiz };
+    } catch (error) {
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }

@@ -11,12 +11,16 @@ import {
   NotFoundException,
   Put,
   Patch,
+  HttpCode,
+  Header,
 } from '@nestjs/common';
 import { QuizService } from './quiz.service';
 import { Auth } from '../auth/auth.decorator';
 import { RequestWithUser } from '../auth/model/request-with-user';
 import { CreateQuizDto } from './dto/create-quiz.dto';
 import { UpdateQuizDto } from './dto/update-quiz.dto';
+import { CreateQuestionDto } from './dto/create-question.dto';
+
 
 @Controller('api/quiz')
 export class QuizController {
@@ -103,6 +107,36 @@ export class QuizController {
       return { data: quiz };
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  @Post(':id/questions')
+  async addQuestion(
+    @Param('id') id: string,
+    @Body() question: CreateQuestionDto,
+    @Request() req: RequestWithUser,
+  ) {
+    try {
+      if (!req.user || !req.user.uid) {
+        throw new UnauthorizedException('User not authenticated');
+      }
+
+      const questionId = await this.quizService.addQuestion(id, req.user.uid, question);
+      
+      // Définir le header Location avec l'ID de la question
+      const location = `/api/quiz/${id}/questions/${questionId}`;
+      return { 
+        id: questionId,
+        location: location 
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw new HttpException('Quiz not found', HttpStatus.NOT_FOUND);
+      }
+      throw new HttpException(
+        `Failed to add question: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
     }
   }
 }

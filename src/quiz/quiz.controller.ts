@@ -9,7 +9,6 @@ import {
   Param,
   UnauthorizedException,
   NotFoundException,
-  Put,
   Patch,
   HttpCode,
   Header,
@@ -20,6 +19,7 @@ import { RequestWithUser } from '../auth/model/request-with-user';
 import { CreateQuizDto } from './dto/create-quiz.dto';
 import { UpdateQuizDto } from './dto/update-quiz.dto';
 import { CreateQuestionDto } from './dto/create-question.dto';
+
 
 
 @Controller('api/quiz')
@@ -40,7 +40,13 @@ export class QuizController {
       console.log('👤 Utilisateur ID:', userId);
       const quizzes = await this.quizService.getUserQuizzes(userId);
       console.log('📦 Quiz récupérés:', quizzes);
-      return { data: quizzes };
+
+      // Add HATEOAS link
+      const links = {
+        create: '/api/quiz', // Link to the POST endpoint for creating a quiz
+      };
+
+      return { data: quizzes, _links: links };
     } catch (error) {
       console.error('🚨 Erreur lors de la récupération des quizs:', error);
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -87,7 +93,6 @@ export class QuizController {
     }
   }
 
-  /** 🔹 PATCH /api/quiz/:id - Met à jour un quiz existant */
   @Patch(':id')
   async updateQuiz(
     @Param('id') id: string,
@@ -98,7 +103,7 @@ export class QuizController {
       if (!req.user || !req.user.uid) {
         throw new UnauthorizedException('User not authenticated');
       }
- 
+
       const quiz = await this.quizService.updateQuiz(
         id,
         updateQuizDto,

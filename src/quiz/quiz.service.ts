@@ -87,6 +87,7 @@ export class QuizService {
 
       const quizData = quizDoc.data();
 
+
       if (quizData.ownerId !== userId) {
         throw new NotFoundException('Quiz not found');
       }
@@ -107,24 +108,24 @@ export class QuizService {
       throw new Error(`Failed to get quiz: ${error.message}`);
     }
   }
-  /** 🔹 Update le nom du quiz */
+
   async updateQuiz(quizId: string, updateQuizDto: any, userId: string) {
     try {
       const quizRef = admin
         .firestore()
         .collection(this.QUIZ_COLLECTION)
         .doc(quizId);
- 
+
       const quizDoc = await quizRef.get();
- 
+
       if (!quizDoc.exists || quizDoc.data().ownerId !== userId) {
         throw new NotFoundException('Quiz not found');
       }
- 
+
       await quizRef.update({
         title: updateQuizDto[0].value,
       });
- 
+
       return quizRef.get();
     } catch (error) {
       if (error instanceof NotFoundException) {

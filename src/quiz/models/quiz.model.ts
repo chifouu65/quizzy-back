@@ -5,7 +5,9 @@ export interface Quiz {
   title: string;
   ownerId: string;
   createdAt: Timestamp;
+  updatedAt?: Timestamp;
   description?: string;
+  questions?: any[];
 }
 
 export interface CreateQuizDto {

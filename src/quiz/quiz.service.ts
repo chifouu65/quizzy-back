@@ -1,98 +1,135 @@
-import { Inject, Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { Firestore, Timestamp } from '@google-cloud/firestore';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Quiz } from './models/quiz.model';
-import { FirestoreDatabaseProvider } from '../firestore/firestore.providers';
 import { CreateQuizDto } from './dto/create-quiz.dto';
+import * as admin from 'firebase-admin';
+//import { updateQuizDto } from './dto/update-quiz.dto';
 
 @Injectable()
 export class QuizService {
-  private readonly logger = new Logger(QuizService.name);
   private readonly QUIZ_COLLECTION = 'quizzes';
 
-  constructor(@Inject(FirestoreDatabaseProvider) private readonly firestore: Firestore) {}
-
   /** 🔹 Récupère tous les quiz de l'utilisateur */
-  async getUserQuizzes(userId: string): Promise<{ id: string; title: string }[]> {
-    try {
-      this.logger.log(`Fetching quizzes for user: ${userId}`);
+  async getUserQuizzes(
+    userId: string,
+  ): Promise<{ id: string; title: string }[]> {
+    console.log(`Fetching quizzes for user ID: ${userId}`);
+    const quizzesRef = admin.firestore().collection(this.QUIZ_COLLECTION);
+    const snapshot = await quizzesRef.where('ownerId', '==', userId).get();
 
-      const quizzesRef = this.firestore
-        .collection('quizzes')
-        .where('ownerId', '==', userId)
-        .orderBy('createdAt', 'desc');
-
-      const snapshot = await quizzesRef.get();
-
-      if (snapshot.empty) {
-        this.logger.warn(`No quizzes found for user: ${userId}`);
-        return [];
-      }
-
-      return snapshot.docs.map((doc) => ({
-        id: doc.id,
-        title: doc.data().title, // 🔥 On ne récupère que l'ID et le titre
-      }));
-    } catch (error) {
-      this.logger.error(`Failed to get quizzes for user ${userId}: ${error.message}`);
-      throw new Error(`Failed to get user quizzes: ${error.message}`);
+    if (snapshot.empty) {
+      console.error(`No quizzes found for user ID: ${userId}`);
+      return [];
     }
+
+    console.log(`Found ${snapshot.size} quizzes for user ID: ${userId}`);
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      title: doc.data().title,
+    }));
   }
 
   /** 🔹 Crée un nouveau quiz */
-  async createQuiz(createQuizDto: CreateQuizDto, userId: string): Promise<Quiz> {
+  async createQuiz(
+    createQuizDto: CreateQuizDto,
+    userId: string,
+  ): Promise<Quiz> {
     try {
-      this.logger.log(`Creating quiz for user: ${userId}`);
+      const quizRef = admin.firestore().collection(this.QUIZ_COLLECTION).doc();
 
-      // Validation supplémentaire
-      if (!userId) {
-        throw new BadRequestException('User ID is required');
-      }
-
-      // Construction de l'objet quiz avec tous les champs nécessaires
-      const quiz = {
+      await quizRef.set({
         title: createQuizDto.title.trim(),
         description: createQuizDto.description?.trim(),
         ownerId: userId,
-        createdAt: Timestamp.fromDate(new Date()),
-        updatedAt: Timestamp.fromDate(new Date()),
-        status: 'draft', // Ajout d'un statut par défaut
-        questions: [], // Initialisation du tableau de questions
-      };
-
-      // Transaction Firestore pour garantir l'atomicité
-      const quizRef = this.firestore.collection(this.QUIZ_COLLECTION).doc();
-      await this.firestore.runTransaction(async (transaction) => {
-        // Vérification du nombre de quiz existants pour l'utilisateur
-        const userQuizCount = await this.getUserQuizCount(userId);
-        if (userQuizCount >= 50) { // Limite arbitraire
-          throw new BadRequestException('Quiz limit reached for this user');
-        }
-
-        transaction.set(quizRef, quiz);
+        createdAt: admin.firestore.Timestamp.now(),
+        updatedAt: admin.firestore.Timestamp.now(),
       });
 
-      // Retourne l'objet quiz complet avec son ID
       return {
         id: quizRef.id,
-        ...quiz,
+        title: createQuizDto.title.trim(),
+        description: createQuizDto.description?.trim(),
+        ownerId: userId,
+        createdAt: admin.firestore.Timestamp.now(),
+        updatedAt: admin.firestore.Timestamp.now(),
       } as Quiz;
-
     } catch (error) {
-      this.logger.error(`Failed to create quiz for user ${userId}: ${error.message}`);
-      throw error instanceof BadRequestException 
-        ? error 
+      throw error instanceof BadRequestException
+        ? error
         : new Error(`Failed to create quiz: ${error.message}`);
     }
   }
 
   /** 🔹 Utilitaire pour compter les quiz d'un utilisateur */
   private async getUserQuizCount(userId: string): Promise<number> {
-    const snapshot = await this.firestore
-      .collection(this.QUIZ_COLLECTION)
-      .where('ownerId', '==', userId)
-      .count()
-      .get();
-    
-    return snapshot.data().count;
+    const quizzesRef = admin.firestore().collection(this.QUIZ_COLLECTION);
+    const snapshot = await quizzesRef.where('ownerId', '==', userId).get();
+
+    return snapshot.size;
+  }
+
+  async getQuizById(quizId: string, userId: string): Promise<Quiz> {
+    try {
+      const quizDoc = await admin
+        .firestore()
+        .collection(this.QUIZ_COLLECTION)
+        .doc(quizId)
+        .get();
+
+      if (!quizDoc.exists) {
+        throw new NotFoundException('Quiz not found');
+      }
+
+      const quizData = quizDoc.data();
+
+
+      if (quizData.ownerId !== userId) {
+        throw new NotFoundException('Quiz not found');
+      }
+
+      return {
+        id: quizDoc.id,
+        title: quizData.title,
+        description: quizData.description,
+        ownerId: quizData.ownerId,
+        createdAt: quizData.createdAt,
+        updatedAt: quizData.updatedAt,
+        questions: quizData.questions || [],
+      } as Quiz;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new Error(`Failed to get quiz: ${error.message}`);
+    }
+  }
+
+  async updateQuiz(quizId: string, updateQuizDto: any, userId: string) {
+    try {
+      const quizRef = admin
+        .firestore()
+        .collection(this.QUIZ_COLLECTION)
+        .doc(quizId);
+
+      const quizDoc = await quizRef.get();
+
+      if (!quizDoc.exists || quizDoc.data().ownerId !== userId) {
+        throw new NotFoundException('Quiz not found');
+      }
+
+      await quizRef.update({
+        title: updateQuizDto[0].value,
+      });
+
+      return quizRef.get();
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new Error(`Failed to update quiz: ${error.message}`);
+    }
   }
 }

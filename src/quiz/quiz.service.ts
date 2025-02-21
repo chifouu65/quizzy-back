@@ -6,6 +6,8 @@ import {
 import { Quiz } from './models/quiz.model';
 import { CreateQuizDto } from './dto/create-quiz.dto';
 import * as admin from 'firebase-admin';
+import { CreateQuestionDto } from './dto/create-question.dto';
+
 //import { updateQuizDto } from './dto/update-quiz.dto';
 
 @Injectable()
@@ -15,7 +17,7 @@ export class QuizService {
   /** 🔹 Récupère tous les quiz de l'utilisateur */
   async getUserQuizzes(
     userId: string,
-  ): Promise<{ id: string; title: string }[]> {
+  ): Promise<{ id: string; title: string; _links?: { start?: string } }[]> {
     console.log(`Fetching quizzes for user ID: ${userId}`);
     const quizzesRef = admin.firestore().collection(this.QUIZ_COLLECTION);
     const snapshot = await quizzesRef.where('ownerId', '==', userId).get();
@@ -26,10 +28,22 @@ export class QuizService {
     }
 
     console.log(`Found ${snapshot.size} quizzes for user ID: ${userId}`);
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      title: doc.data().title,
-    }));
+    return snapshot.docs.map((doc) => {
+      const quiz = { id: doc.id, ...doc.data() } as Quiz;
+      const result: any = {
+        id: quiz.id,
+        title: quiz.title
+      };
+
+      // Ajouter le lien start si le quiz est démarrable
+      if (this.isQuizStartable(quiz)) {
+        result._links = {
+          start: `/api/quiz/${quiz.id}/start`
+        };
+      }
+
+      return result;
+    });
   }
 
   /** 🔹 Crée un nouveau quiz */
@@ -85,7 +99,6 @@ export class QuizService {
 
       const quizData = quizDoc.data();
 
-
       if (quizData.ownerId !== userId) {
         throw new NotFoundException('Quiz not found');
       }
@@ -131,5 +144,124 @@ export class QuizService {
       }
       throw new Error(`Failed to update quiz: ${error.message}`);
     }
+  }
+
+  async addQuestion(quizId: string, userId: string, question: CreateQuestionDto): Promise<string> {
+    try {
+      const quizRef = admin
+        .firestore()
+        .collection(this.QUIZ_COLLECTION)
+        .doc(quizId);
+
+      const quizDoc = await quizRef.get();
+
+      if (!quizDoc.exists || quizDoc.data().ownerId !== userId) {
+        throw new NotFoundException('Quiz not found');
+      }
+
+      // Récupérer les questions existantes
+      const quizData = quizDoc.data();
+      const questions = quizData.questions || [];
+
+      // Créer la nouvelle question avec un ID unique
+      const newQuestion = {
+        id: admin.firestore().collection('temp').doc().id, // Génère un ID unique
+        title: question.title,
+        answers: question.answers,
+        createdAt: admin.firestore.Timestamp.now(),
+        updatedAt: admin.firestore.Timestamp.now()
+      };
+
+      // Ajouter la nouvelle question à la liste
+      questions.push(newQuestion);
+
+      // Mettre à jour le document avec la nouvelle liste de questions
+      await quizRef.update({
+        questions: questions,
+        updatedAt: admin.firestore.Timestamp.now()
+      });
+
+      console.log(`✅ Question ajoutée avec succès, ID: ${newQuestion.id}`);
+      return newQuestion.id; // Retourne l'ID de la nouvelle question
+    } catch (error) {
+      console.error(`🚨 Erreur lors de l'ajout de la question:`, error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new Error(`Failed to add question: ${error.message}`);
+    }
+  }
+
+  async updateQuestion(quizId: string, questionId: string, updateQuestionDto: any, userId: string): Promise<void> {
+    try {
+      const quizRef = admin
+        .firestore()
+        .collection(this.QUIZ_COLLECTION)
+        .doc(quizId);
+
+      const quizDoc = await quizRef.get();
+
+      if (!quizDoc.exists || quizDoc.data().ownerId !== userId) {
+        throw new NotFoundException('Quiz not found');
+      }
+
+      const quizData = quizDoc.data();
+      const questions = quizData.questions || [];
+
+      const questionIndex = questions.findIndex(q => q.id === questionId);
+      if (questionIndex === -1) {
+        throw new NotFoundException('Question not found');
+      }
+
+      questions[questionIndex] = {
+        ...questions[questionIndex],
+        ...updateQuestionDto,
+        updatedAt: admin.firestore.Timestamp.now()
+      };
+
+      await quizRef.update({
+        questions: questions,
+        updatedAt: admin.firestore.Timestamp.now()
+      });
+
+      console.log(`✅ Question mise à jour avec succès, ID: ${questionId}`);
+    } catch (error) {
+      console.error(`🚨 Erreur lors de la mise à jour de la question:`, error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new Error(`Failed to update question: ${error.message}`);
+    }
+  }
+
+  private isQuizStartable(quiz: Quiz): boolean {
+    // 1. Vérifier que le titre n'est pas vide
+    if (!quiz.title?.trim()) {
+      return false;
+    }
+
+    // 2. Vérifier qu'il y a au moins une question
+    if (!quiz.questions?.length) {
+      return false;
+    }
+
+    // 3. Vérifier que chaque question est valide
+    return quiz.questions.every(question => {
+      // Vérifier le titre de la question
+      if (!question.title?.trim()) {
+        return false;
+      }
+
+      // Vérifier qu'il y a au moins 2 réponses
+      if (!question.answers?.length || question.answers.length < 2) {
+        return false;
+      }
+
+      // Compter les réponses correctes
+      const correctAnswers = question.answers.filter(answer => answer.isCorrect).length;
+
+      // Il doit y avoir exactement une réponse correcte
+      return correctAnswers === 1;
+    });
   }
 }

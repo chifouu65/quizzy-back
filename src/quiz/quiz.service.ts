@@ -17,7 +17,7 @@ export class QuizService {
   /** 🔹 Récupère tous les quiz de l'utilisateur */
   async getUserQuizzes(
     userId: string,
-  ): Promise<{ id: string; title: string }[]> {
+  ): Promise<{ id: string; title: string; _links?: { start?: string } }[]> {
     console.log(`Fetching quizzes for user ID: ${userId}`);
     const quizzesRef = admin.firestore().collection(this.QUIZ_COLLECTION);
     const snapshot = await quizzesRef.where('ownerId', '==', userId).get();
@@ -28,10 +28,22 @@ export class QuizService {
     }
 
     console.log(`Found ${snapshot.size} quizzes for user ID: ${userId}`);
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      title: doc.data().title,
-    }));
+    return snapshot.docs.map((doc) => {
+      const quiz = { id: doc.id, ...doc.data() } as Quiz;
+      const result: any = {
+        id: quiz.id,
+        title: quiz.title
+      };
+
+      // Ajouter le lien start si le quiz est démarrable
+      if (this.isQuizStartable(quiz)) {
+        result._links = {
+          start: `/api/quiz/${quiz.id}/start`
+        };
+      }
+
+      return result;
+    });
   }
 
   /** 🔹 Crée un nouveau quiz */
@@ -220,5 +232,36 @@ export class QuizService {
       }
       throw new Error(`Failed to update question: ${error.message}`);
     }
+  }
+
+  private isQuizStartable(quiz: Quiz): boolean {
+    // 1. Vérifier que le titre n'est pas vide
+    if (!quiz.title?.trim()) {
+      return false;
+    }
+
+    // 2. Vérifier qu'il y a au moins une question
+    if (!quiz.questions?.length) {
+      return false;
+    }
+
+    // 3. Vérifier que chaque question est valide
+    return quiz.questions.every(question => {
+      // Vérifier le titre de la question
+      if (!question.title?.trim()) {
+        return false;
+      }
+
+      // Vérifier qu'il y a au moins 2 réponses
+      if (!question.answers?.length || question.answers.length < 2) {
+        return false;
+      }
+
+      // Compter les réponses correctes
+      const correctAnswers = question.answers.filter(answer => answer.isCorrect).length;
+
+      // Il doit y avoir exactement une réponse correcte
+      return correctAnswers === 1;
+    });
   }
 }

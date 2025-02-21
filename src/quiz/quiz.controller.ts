@@ -31,26 +31,19 @@ export class QuizController {
   /** 🔹 GET /api/quiz/ - Récupère les quiz de l'utilisateur connecté */
   @Get()
   async getUserQuizzes(@Request() req: RequestWithUser) {
-    console.log('📥 Requête reçue pour récupérer les quizs');
-
     try {
-      if (!req.user || !req.user.uid) {
+      if (!req.user?.uid) {
         throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
       }
 
-      const userId = req.user.uid;
-      console.log('👤 Utilisateur ID:', userId);
-      const quizzes = await this.quizService.getUserQuizzes(userId);
-      console.log('📦 Quiz récupérés:', quizzes);
+      const quizzes = await this.quizService.getUserQuizzes(req.user.uid);
 
-      // Add HATEOAS link
-      const links = {
-        create: 'http://localhost:3000/api/quiz/',
-      };
-
+      // Add HATEOAS links
       return {
         data: quizzes,
-        _links: links,
+        _links: {
+          create: '/api/quiz'
+        }
       };
     } catch (error) {
       console.error('🚨 Erreur lors de la récupération des quizs:', error);

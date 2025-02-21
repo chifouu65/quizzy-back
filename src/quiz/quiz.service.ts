@@ -77,14 +77,6 @@ export class QuizService {
     }
   }
 
-  /** 🔹 Utilitaire pour compter les quiz d'un utilisateur */
-  private async getUserQuizCount(userId: string): Promise<number> {
-    const quizzesRef = admin.firestore().collection(this.QUIZ_COLLECTION);
-    const snapshot = await quizzesRef.where('ownerId', '==', userId).get();
-
-    return snapshot.size;
-  }
-
   async getQuizById(quizId: string, userId: string): Promise<Quiz> {
     try {
       const quizDoc = await admin

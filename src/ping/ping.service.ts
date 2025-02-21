@@ -15,8 +15,7 @@ export class PingService {
           database: 'OK',
         },
       }))
-      .catch((err) => {
-        console.error(err);
+      .catch(() => {
         return {
           status: 'Partial',
           details: {

@@ -39,11 +39,13 @@ export class QuizController {
       const quizzes = await this.quizService.getUserQuizzes(req.user.uid);
 
       // Add HATEOAS links
+      const links = {
+        creates: 'http://localhost:3000/api/quiz',
+      };
       return {
         data: quizzes,
-        _links: {
-          create: '/api/quiz'
-        }
+        _links: links,
+      
       };
     } catch (error) {
       console.error('🚨 Erreur lors de la récupération des quizs:', error);

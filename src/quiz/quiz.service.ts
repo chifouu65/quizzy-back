@@ -18,32 +18,28 @@ export class QuizService {
   async getUserQuizzes(
     userId: string,
   ): Promise<{ id: string; title: string; _links?: { start?: string } }[]> {
-    console.log(`Fetching quizzes for user ID: ${userId}`);
-    const quizzesRef = admin.firestore().collection(this.QUIZ_COLLECTION);
-    const snapshot = await quizzesRef.where('ownerId', '==', userId).get();
+    try {
+      const quizzesRef = admin.firestore().collection(this.QUIZ_COLLECTION);
+      const snapshot = await quizzesRef.where('ownerId', '==', userId).get();
 
-    if (snapshot.empty) {
-      console.error(`No quizzes found for user ID: ${userId}`);
-      return [];
-    }
-
-    console.log(`Found ${snapshot.size} quizzes for user ID: ${userId}`);
-    return snapshot.docs.map((doc) => {
-      const quiz = { id: doc.id, ...doc.data() } as Quiz;
-      const result: any = {
-        id: quiz.id,
-        title: quiz.title
-      };
-
-      // Ajouter le lien start si le quiz est démarrable
-      if (this.isQuizStartable(quiz)) {
-        result._links = {
-          start: `/api/quiz/${quiz.id}/start`
+      return snapshot.docs.map(doc => {
+        const quiz = { id: doc.id, ...doc.data() } as Quiz;
+        const result: any = {
+          id: quiz.id,
+          title: quiz.title
         };
-      }
 
-      return result;
-    });
+        if (this.isQuizStartable(quiz)) {
+          result._links = {
+            start: `http://localhost:3000/api/quiz/${quiz.id}/start`
+          };
+        }
+
+        return result;
+      });
+    } catch (error) {
+      throw new Error(`Failed to get user quizzes: ${error.message}`);
+    }
   }
 
   /** 🔹 Crée un nouveau quiz */
@@ -255,5 +251,49 @@ export class QuizService {
       // Il doit y avoir exactement une réponse correcte
       return correctAnswers === 1;
     });
+  }
+
+  private generateExecutionId(): string {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+  }
+
+  async startQuiz(quizId: string, userId: string): Promise<string> {
+    try {
+      const quizDoc = await admin
+        .firestore()
+        .collection(this.QUIZ_COLLECTION)
+        .doc(quizId)
+        .get();
+
+      if (!quizDoc.exists || quizDoc.data().ownerId !== userId) {
+        throw new NotFoundException('Quiz not found');
+      }
+
+      const quiz = { id: quizDoc.id, ...quizDoc.data() } as Quiz;
+
+      if (!this.isQuizStartable(quiz)) {
+        throw new BadRequestException('Quiz is not ready to be started');
+      }
+
+      const executionId = this.generateExecutionId();
+
+      // Créer l'exécution dans Firestore avec la structure exacte attendue par le front
+      await admin.firestore().collection('executions').doc(executionId).set({
+        quizId,
+        quiz: quiz,  // Le front attend l'objet quiz complet
+        status: 'waiting',
+        createdAt: admin.firestore.Timestamp.now(),
+        ownerId: userId,
+        participants: 0,
+        currentQuestion: null
+      });
+
+      return executionId;
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new Error(`Failed to start quiz: ${error.message}`);
+    }
   }
 }

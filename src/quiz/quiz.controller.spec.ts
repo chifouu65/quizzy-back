@@ -35,6 +35,8 @@ describe('QuizController', () => {
             updateQuestion: jest.fn(),
             getUserQuizzes: jest.fn(),
             getQuizById: jest.fn(),
+            deleteQuiz: jest.fn(),
+            deleteQuestion: jest.fn(),
           },
         },
       ],
@@ -263,6 +265,126 @@ describe('QuizController', () => {
       jest.spyOn(service, 'updateQuestion').mockRejectedValue(new NotFoundException('Question not found'));
 
       await expect(controller.updateQuestion('quiz-1', 'non-existent-question-id', {}, mockRequest)).rejects.toThrow(HttpException);
+    });
+  });
+
+  describe('deleteQuiz', () => {
+    it('should delete quiz', async () => {
+      const mockUser: UserDetails = { uid: 'test-user-id', email: 'test@example.com' };
+      const mockRequest = { user: mockUser } as RequestWithUser;
+
+      jest.spyOn(service, 'deleteQuiz').mockResolvedValue(undefined);
+
+      await controller.deleteQuiz('quiz-1', mockRequest);
+      expect(service.deleteQuiz).toHaveBeenCalledWith('quiz-1', mockUser.uid);
+    });
+
+    it('should throw UnauthorizedException when user is not authenticated', async () => {
+      const mockRequest = { user: null } as RequestWithUser;
+      await expect(controller.deleteQuiz('quiz-1', mockRequest)).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should throw NotFoundException when quiz does not exist', async () => {
+      const mockUser: UserDetails = { uid: 'test-user-id', email: 'test@example.com' };
+      const mockRequest = { user: mockUser } as RequestWithUser;
+
+      jest.spyOn(service, 'deleteQuiz').mockRejectedValue(new NotFoundException('Quiz not found'));
+
+      await expect(controller.deleteQuiz('non-existent-id', mockRequest)).rejects.toThrow(HttpException);
+    });
+  });
+
+  describe('deleteQuestion', () => {
+    it('should delete question', async () => {
+      const mockUser: UserDetails = { uid: 'test-user-id', email: 'test@example.com' };
+      const mockRequest = { user: mockUser } as RequestWithUser;
+
+      jest.spyOn(service, 'deleteQuestion').mockResolvedValue(undefined);
+
+      await controller.deleteQuestion('quiz-1', 'question-1', mockRequest);
+      expect(service.deleteQuestion).toHaveBeenCalledWith('quiz-1', 'question-1', mockUser.uid);
+    });
+
+    it('should throw UnauthorizedException when user is not authenticated', async () => {
+      const mockRequest = { user: null } as RequestWithUser;
+      await expect(controller.deleteQuestion('quiz-1', 'question-1', mockRequest)).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should throw NotFoundException when question does not exist', async () => {
+      const mockUser: UserDetails = { uid: 'test-user-id', email: 'test@example.com' };
+      const mockRequest = { user: mockUser } as RequestWithUser;
+
+      jest.spyOn(service, 'deleteQuestion').mockRejectedValue(new NotFoundException('Question not found'));
+
+      await expect(controller.deleteQuestion('quiz-1', 'non-existent-id', mockRequest)).rejects.toThrow(HttpException);
+    });
+  });
+
+  describe('addQuestion with advanced validation', () => {
+    it('should validate question title length', async () => {
+      const invalidQuestionDto: CreateQuestionDto = {
+        title: 'a'.repeat(101), // titre trop long
+        answers: [{ title: 'Answer 1', isCorrect: true }],
+      };
+      const mockUser: UserDetails = { uid: 'test-user-id', email: 'test@example.com' };
+      const mockRequest = { user: mockUser } as RequestWithUser;
+
+      jest.spyOn(service, 'addQuestion').mockRejectedValue(
+        new BadRequestException('Question title must be less than 100 characters')
+      );
+
+      await expect(controller.addQuestion('quiz-1', invalidQuestionDto, mockRequest)).rejects.toThrow(HttpException);
+    });
+
+    it('should validate answer count', async () => {
+      const invalidQuestionDto: CreateQuestionDto = {
+        title: 'Test Question',
+        answers: [{ title: 'Answer 1', isCorrect: true }], // Une seule réponse
+      };
+      const mockUser: UserDetails = { uid: 'test-user-id', email: 'test@example.com' };
+      const mockRequest = { user: mockUser } as RequestWithUser;
+
+      jest.spyOn(service, 'addQuestion').mockRejectedValue(
+        new BadRequestException('Question must have at least 2 answers')
+      );
+
+      await expect(controller.addQuestion('quiz-1', invalidQuestionDto, mockRequest)).rejects.toThrow(HttpException);
+    });
+
+    it('should validate correct answer exists', async () => {
+      const invalidQuestionDto: CreateQuestionDto = {
+        title: 'Test Question',
+        answers: [
+          { title: 'Answer 1', isCorrect: false },
+          { title: 'Answer 2', isCorrect: false },
+        ],
+      };
+      const mockUser: UserDetails = { uid: 'test-user-id', email: 'test@example.com' };
+      const mockRequest = { user: mockUser } as RequestWithUser;
+
+      jest.spyOn(service, 'addQuestion').mockRejectedValue(
+        new BadRequestException('Question must have exactly one correct answer')
+      );
+
+      await expect(controller.addQuestion('quiz-1', invalidQuestionDto, mockRequest)).rejects.toThrow(HttpException);
+    });
+
+    it('should validate answer title length', async () => {
+      const invalidQuestionDto: CreateQuestionDto = {
+        title: 'Test Question',
+        answers: [
+          { title: 'a'.repeat(201), isCorrect: true }, // réponse trop longue
+          { title: 'Answer 2', isCorrect: false },
+        ],
+      };
+      const mockUser: UserDetails = { uid: 'test-user-id', email: 'test@example.com' };
+      const mockRequest = { user: mockUser } as RequestWithUser;
+
+      jest.spyOn(service, 'addQuestion').mockRejectedValue(
+        new BadRequestException('Answer title must be less than 200 characters')
+      );
+
+      await expect(controller.addQuestion('quiz-1', invalidQuestionDto, mockRequest)).rejects.toThrow(HttpException);
     });
   });
 }); 

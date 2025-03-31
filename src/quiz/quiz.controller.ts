@@ -36,7 +36,7 @@ export class QuizController {
   async getUserQuizzes(@Request() req: RequestWithUser) {
     try {
       if (!req.user?.uid) {
-        throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+        throw new UnauthorizedException('User not authenticated');
       }
 
       const quizzes = await this.quizService.getUserQuizzes(req.user.uid);
@@ -49,6 +49,9 @@ export class QuizController {
         }
       };
     } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       console.error('🚨 Erreur lors de la récupération des quizs:', error);
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
@@ -62,13 +65,16 @@ export class QuizController {
   ) {
     try {
       if (!req.user || !req.user.uid) {
-        throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+        throw new UnauthorizedException('User not authenticated');
       }
 
       const userId = req.user.uid;
       const quiz = await this.quizService.createQuiz(createQuizDto, userId);
       return { data: quiz };
     } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
@@ -87,6 +93,9 @@ export class QuizController {
         questions: quiz.questions,
       };
     } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       if (error instanceof NotFoundException) {
         throw new HttpException('Quiz not found', HttpStatus.NOT_FOUND);
       }
@@ -112,6 +121,9 @@ export class QuizController {
       );
       return { data: quiz };
     } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
@@ -136,6 +148,9 @@ export class QuizController {
         location: location
       };
     } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       if (error instanceof NotFoundException) {
         throw new HttpException('Quiz not found', HttpStatus.NOT_FOUND);
       }
@@ -157,7 +172,7 @@ export class QuizController {
       throw new UnauthorizedException('User not authenticated');
     }
     const userId = req.user.uid;
-    await this.quizService.updateQuestion(quizId, questionId, updateQuestionDto, userId);
+    await this.quizService.updateQuestion(quizId, questionId, userId, updateQuestionDto);
   }
 
   @Post(':id/start')

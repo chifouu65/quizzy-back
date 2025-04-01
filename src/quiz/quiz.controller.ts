@@ -17,6 +17,7 @@ import {
   Put,
   BadRequestException,
   Res,
+  Delete,
 } from '@nestjs/common';
 import { QuizService } from './quiz.service';
 import { RequestWithUser } from '../auth/model/request-with-user';
@@ -35,20 +36,21 @@ export class QuizController {
   @Get()
   async getUserQuizzes(@Request() req: RequestWithUser) {
     try {
-      if (!req.user?.uid) {
-        throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+      if (!req.user || !req.user.uid) {
+        throw new UnauthorizedException('User not authenticated');
       }
 
       const quizzes = await this.quizService.getUserQuizzes(req.user.uid);
-
-      // Add HATEOAS links
       return {
         data: quizzes,
         _links: {
-          create: 'http://localhost:3000/api/quiz'
-        }
+          creates: 'http://localhost:3000/api/quiz',
+        },
       };
     } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       console.error('🚨 Erreur lors de la récupération des quizs:', error);
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
@@ -62,13 +64,16 @@ export class QuizController {
   ) {
     try {
       if (!req.user || !req.user.uid) {
-        throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+        throw new UnauthorizedException('User not authenticated');
       }
 
       const userId = req.user.uid;
       const quiz = await this.quizService.createQuiz(createQuizDto, userId);
       return { data: quiz };
     } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
@@ -87,6 +92,9 @@ export class QuizController {
         questions: quiz.questions,
       };
     } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       if (error instanceof NotFoundException) {
         throw new HttpException('Quiz not found', HttpStatus.NOT_FOUND);
       }
@@ -112,6 +120,9 @@ export class QuizController {
       );
       return { data: quiz };
     } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
@@ -136,6 +147,9 @@ export class QuizController {
         location: location
       };
     } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       if (error instanceof NotFoundException) {
         throw new HttpException('Quiz not found', HttpStatus.NOT_FOUND);
       }
@@ -157,7 +171,7 @@ export class QuizController {
       throw new UnauthorizedException('User not authenticated');
     }
     const userId = req.user.uid;
-    await this.quizService.updateQuestion(quizId, questionId, updateQuestionDto, userId);
+    await this.quizService.updateQuestion(quizId, questionId, userId, updateQuestionDto);
   }
 
   @Post(':id/start')
@@ -184,6 +198,48 @@ export class QuizController {
       }
       if (error instanceof BadRequestException) {
         throw new HttpException('Quiz is not ready to be started', HttpStatus.BAD_REQUEST);
+      }
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  @Delete(':id')
+  async deleteQuiz(@Param('id') id: string, @Request() req: RequestWithUser) {
+    try {
+      if (!req.user || !req.user.uid) {
+        throw new UnauthorizedException('User not authenticated');
+      }
+
+      await this.quizService.deleteQuiz(id, req.user.uid);
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      if (error instanceof NotFoundException) {
+        throw new HttpException('Quiz not found', HttpStatus.NOT_FOUND);
+      }
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  @Delete(':quizId/questions/:questionId')
+  async deleteQuestion(
+    @Param('quizId') quizId: string,
+    @Param('questionId') questionId: string,
+    @Request() req: RequestWithUser,
+  ) {
+    try {
+      if (!req.user || !req.user.uid) {
+        throw new UnauthorizedException('User not authenticated');
+      }
+
+      await this.quizService.deleteQuestion(quizId, questionId, req.user.uid);
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      if (error instanceof NotFoundException) {
+        throw new HttpException('Question not found', HttpStatus.NOT_FOUND);
       }
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }

@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Quiz } from './models/quiz.model';
 import { CreateQuizDto } from './dto/create-quiz.dto';
@@ -294,6 +295,75 @@ export class QuizService {
         throw error;
       }
       throw new Error(`Failed to start quiz: ${error.message}`);
+    }
+  }
+
+  async deleteQuiz(quizId: string, userId: string): Promise<void> {
+    try {
+      const quizDoc = await admin
+        .firestore()
+        .collection(this.QUIZ_COLLECTION)
+        .doc(quizId)
+        .get();
+
+      if (!quizDoc.exists) {
+        throw new NotFoundException('Quiz not found');
+      }
+
+      const quizData = quizDoc.data();
+      if (quizData.ownerId !== userId) {
+        throw new UnauthorizedException('Not authorized to delete this quiz');
+      }
+
+      await admin
+        .firestore()
+        .collection(this.QUIZ_COLLECTION)
+        .doc(quizId)
+        .delete();
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof UnauthorizedException) {
+        throw error;
+      }
+      throw new Error(`Failed to delete quiz: ${error.message}`);
+    }
+  }
+
+  async deleteQuestion(quizId: string, questionId: string, userId: string): Promise<void> {
+    try {
+      const quizDoc = await admin
+        .firestore()
+        .collection(this.QUIZ_COLLECTION)
+        .doc(quizId)
+        .get();
+
+      if (!quizDoc.exists) {
+        throw new NotFoundException('Quiz not found');
+      }
+
+      const quizData = quizDoc.data();
+      if (quizData.ownerId !== userId) {
+        throw new UnauthorizedException('Not authorized to delete this question');
+      }
+
+      const questions = quizData.questions || [];
+      const questionIndex = questions.findIndex(q => q.id === questionId);
+      
+      if (questionIndex === -1) {
+        throw new NotFoundException('Question not found');
+      }
+
+      questions.splice(questionIndex, 1);
+
+      await admin
+        .firestore()
+        .collection(this.QUIZ_COLLECTION)
+        .doc(quizId)
+        .update({ questions });
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof UnauthorizedException) {
+        throw error;
+      }
+      throw new Error(`Failed to delete question: ${error.message}`);
     }
   }
 }

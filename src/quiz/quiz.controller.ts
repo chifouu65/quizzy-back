@@ -31,6 +31,7 @@ export class QuizController {
   /** 🔹 GET /api/quiz/ - Récupère les quiz de l'utilisateur connecté */
   @Get()
   async getUserQuizzes(@Request() req: RequestWithUser) {
+    console.log('getUserQuizzes');
     try {
       if (!req.user?.uid) {
         throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
@@ -42,7 +43,7 @@ export class QuizController {
       return {
         data: quizzes,
         _links: {
-          create: '/api/quiz'
+          create: 'http://localhost:3000/api/quiz'
         }
       };
     } catch (error) {
@@ -57,6 +58,7 @@ export class QuizController {
     @Body() createQuizDto: CreateQuizDto,
     @Request() req: RequestWithUser,
   ) {
+    console.log('createQuiz');
     try {
       if (!req.user || !req.user.uid) {
         throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
@@ -72,6 +74,7 @@ export class QuizController {
 
   @Get(':id')
   async getQuizById(@Param('id') id: string, @Request() req: RequestWithUser) {
+    console.log('getQuizById');
     try {
       if (!req.user || !req.user.uid) {
         throw new UnauthorizedException('User not authenticated');
@@ -97,6 +100,7 @@ export class QuizController {
     @Body() updateQuizDto: any,
     @Request() req: RequestWithUser,
   ) {
+    console.log('updateQuiz');
     try {
       if (!req.user || !req.user.uid) {
         throw new UnauthorizedException('User not authenticated');
@@ -119,6 +123,7 @@ export class QuizController {
     @Body() question: CreateQuestionDto,
     @Request() req: RequestWithUser,
   ) {
+    console.log('addQuestion');
     try {
       if (!req.user || !req.user.uid) {
         throw new UnauthorizedException('User not authenticated');
@@ -127,7 +132,7 @@ export class QuizController {
       const questionId = await this.quizService.addQuestion(id, req.user.uid, question);
 
       // Définir le header Location avec l'ID de la question
-      const location = `/api/quiz/${id}/questions/${questionId}`;
+      const location = `http://localhost:3000/api/quiz/${id}/questions/${questionId}`;
       return {
         id: questionId,
         location: location
@@ -150,6 +155,7 @@ export class QuizController {
     @Body() updateQuestionDto: any,
     @Req() req: RequestWithUser
   ): Promise<void> {
+    console.log('updateQuestion');
     if (!req.user || !req.user.uid) {
       throw new UnauthorizedException('User not authenticated');
     }

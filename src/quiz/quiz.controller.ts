@@ -11,8 +11,6 @@ import {
   NotFoundException,
   Patch,
   HttpCode,
-  Header,
-  UseGuards,
   Req,
   Put,
   BadRequestException,
@@ -45,7 +43,7 @@ export class QuizController {
       return {
         data: quizzes,
         _links: {
-          creates: 'http://localhost:3000/api/quiz',
+          create: 'http://localhost:3000/api/quiz',
         },
       };
     } catch (error) {
@@ -177,7 +175,7 @@ export class QuizController {
       throw new UnauthorizedException('User not authenticated');
     }
     const userId = req.user.uid;
-    await this.quizService.updateQuestion(quizId, questionId, userId, updateQuestionDto);
+    await this.quizService.updateQuestion(quizId, questionId,  updateQuestionDto, userId);
   }
 
   @Post(':id/start')
@@ -194,9 +192,9 @@ export class QuizController {
 
       const executionId = await this.quizService.startQuiz(id, req.user.uid);
       
-      // Le front s'attend à un header Location avec juste l'ID d'exécution
+      // Le front s'attend à un header Location avec l'URL complète
       response
-        .setHeader('Location', `/execution/${executionId}`)
+        .setHeader('Location', `http://localhost:3000/api/execution/${executionId}`)
         .send();
     } catch (error) {
       if (error instanceof NotFoundException) {

@@ -8,7 +8,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Injectable } from '@nestjs/common';
 import { QuizService } from './quiz.service';
-import { ExecutionRoom } from './interfaces/execution-room.interface';
+import { executionRooms, ExecutionRoom } from './interfaces/execution-room.interface';
 
 @Injectable()
 @WebSocketGateway({
@@ -22,8 +22,6 @@ export class QuizExecutionGateway {
   @WebSocketServer()
   server: Server;
 
-  private executionRooms: Map<string, ExecutionRoom> = new Map();
-
   constructor(private readonly quizService: QuizService) {}
 
   @SubscribeMessage('host')
@@ -35,12 +33,12 @@ export class QuizExecutionGateway {
     const executionId = 'data' in data ? data.data.executionId : data.executionId;
 
     try {
-      let executionRoom = this.executionRooms.get(executionId);
+      let executionRoom = executionRooms.get(executionId);
       if (!executionRoom) {
         executionRoom = {
           participants: new Set(),
         };
-        this.executionRooms.set(executionId, executionRoom);
+        executionRooms.set(executionId, executionRoom);
       }
 
       executionRoom.hostSocket = client;
@@ -48,6 +46,8 @@ export class QuizExecutionGateway {
       executionRoom.participants.add(client);
 
       const quiz = await this.quizService.getQuizById(executionId, 'TODO');
+
+      executionRoom.quizTitle = quiz.title;
 
       // Répondre dans le format approprié selon le protocole
       if ('data' in data) {
@@ -87,7 +87,7 @@ export class QuizExecutionGateway {
   }
 
   handleDisconnect(client: Socket) {
-    this.executionRooms.forEach((room, executionId) => {
+    executionRooms.forEach((room, executionId) => {
       if (room.participants.has(client)) {
         room.participants.delete(client);
         
@@ -101,7 +101,7 @@ export class QuizExecutionGateway {
         });
 
         if (room.participants.size === 0) {
-          this.executionRooms.delete(executionId);
+          executionRooms.delete(executionId);
         }
       }
     });

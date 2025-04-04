@@ -10,6 +10,8 @@ import { FirestoreModule } from './firestore/firestore.module';
 import { AuthMiddleware } from './auth/auth.middleware';
 import { AuthModule } from './auth/auth.module';
 import { QuizModule } from './quiz/quiz.module';
+import { UsersController } from './users/users.controller';
+import { PingController } from './ping/ping.controller';
 
 @Module({
   imports: [
@@ -28,26 +30,33 @@ import { QuizModule } from './quiz/quiz.module';
     AuthModule,
     QuizModule
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [AppController, UsersController, PingController],
+  providers: [AppService, AuthMiddleware],
 })
 export class AppModule {
   constructor(private configService: ConfigService) {
     /**
      * Authentification ici a implémenter dans un module
      */
-    const serviceAccount = JSON.parse(
-      readFileSync(this.configService.get<string>('SA_KEY'), 'utf8'),
-    );
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-    });
+    if (!admin.apps.length) { // Prevent multiple Firebase initializations
+      const serviceAccountPath = this.configService.get<string>('SA_KEY') || './test/mocks/mock-service-account.json';
+      const serviceAccount = JSON.parse(
+        readFileSync(serviceAccountPath, 'utf8'),
+      );
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
+    }
   }
+  
 
   public configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(AuthMiddleware)
-      .forRoutes({ path: '*', method: RequestMethod.ALL });
+      .forRoutes(
+        { path: 'api/users/*', method: RequestMethod.ALL },
+        { path: 'api/ping', method: RequestMethod.ALL },
+      );
   }
 
 }

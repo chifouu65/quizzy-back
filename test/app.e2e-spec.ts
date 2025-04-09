@@ -17,7 +17,7 @@ describe('AppController (e2e)', () => {
 
     initializeFirebaseForTests();
     mockFirestore();
-    MockAuthMiddleware.injectMockUser(app, { uid: 'test-user-id', email: 'test@example.com' }); // Inject correct mock user
+    MockAuthMiddleware.injectMockUser(app, { uid: '12345678', email: 'michel@gmail.com' }); // Ensure mock user is injected
   });
 
   it('/ (GET)', () => {
@@ -34,7 +34,7 @@ describe('AppController (e2e)', () => {
         .expect(200)
         .expect((res) => {
           console.log('Réponse reçue:', res.body);
-          expect(res.body).toEqual({ uid: 'test-user-id', email: 'test@example.com' }); // Match mock user data
+          expect(res.body).toEqual({ uid: '12345678', email: 'michel@gmail.com' }); // Match mock user data
         });
     });
   });

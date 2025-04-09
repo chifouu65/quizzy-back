@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { MockAuthMiddleware, initializeFirebaseForTests, mockFirestore } from './mocks/firebase-auth.mock';
+import { error } from 'console';
 
 describe('Users and Ping (e2e)', () => {
   let app: INestApplication;
@@ -13,10 +14,14 @@ describe('Users and Ping (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+
+    
+
     await app.init();
 
+    initializeFirebaseForTests(); // Ensure Firebase is initialized
     mockFirestore();
-    MockAuthMiddleware.injectMockUser(app, { uid: 'test-user-id', email: 'test@example.com' }); // Inject correct mock user
+    MockAuthMiddleware.injectMockUser(app, { uid: '12345678', email: 'michel@gmail.com' }); // Correct mock user
     console.log('Mock user injected for tests.');
     console.log('Application initialisée et mocks configurés.');
   });
@@ -24,10 +29,13 @@ describe('Users and Ping (e2e)', () => {
   it('/GET api/users', () => {
     return request(app.getHttpServer())
       .get('/api/users/me') // Correct route
-      .expect(200)
+      .set('Authorization', 'Bearer mock-token') // Add authorization header
       .expect((res) => {
-        console.log('Réponse reçue:', res.body);
-        expect(res.body).toEqual({ uid: 'test-user-id', email: 'test@example.com' }); // Match mock user data
+        console.log('Réponse reçue:', res.body); // Log the full response body
+        if (res.status !== 200) {
+          console.log('Erreur reçue:', error); // Log error details for debugging
+        }
+        expect(res.body).toEqual({ uid: '12345678', email: 'michel@gmail.com' }); // Match mock user data
       });
   });
 

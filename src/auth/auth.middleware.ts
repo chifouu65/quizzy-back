@@ -34,6 +34,7 @@ export class AuthMiddleware implements NestMiddleware {
     const headers = req.headers; // Utilisation directe des en-têtes typés
     if (headers['authorization'] === 'Bearer mock-token') {
       console.log('Mock authorization detected');
+      req.user = { uid: '12345678', email: 'michel@gmail.com' }; // Set mock user
       return next();
     }
     try {

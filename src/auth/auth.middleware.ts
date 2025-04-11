@@ -23,7 +23,7 @@ export class AuthMiddleware implements NestMiddleware {
 
   constructor(
     @Inject(AuthRepository) private readonly repository: AuthRepository,
-  ) {}
+  ) { }
 
   public async use(
     req: RequestModel,
@@ -39,6 +39,15 @@ export class AuthMiddleware implements NestMiddleware {
         next();
         return;
       }
+
+      // Bypass pour le token mocké
+      if (authorization === 'Bearer mock-token') {
+        console.log('Mock token détecté, bypass de l\'authentification.');
+        req.user = { uid: '12345678', email: 'michel@gmail.com' }; // Mock user
+        next();
+        return;
+      }
+
       req.user = await this.authenticate(authorization);
       next();
     } catch (err) {

@@ -36,12 +36,14 @@ export class AppModule {
     /**
      * Authentification ici a implémenter dans un module
      */
-    const serviceAccount = JSON.parse(
-      readFileSync(this.configService.get<string>('SA_KEY'), 'utf8'),
-    );
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-    });
+    if (!admin.apps.length) { // Check if Firebase is already initialized
+      const serviceAccount = JSON.parse(
+        readFileSync(this.configService.get<string>('SA_KEY'), 'utf8'),
+      );
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
+    }
   }
 
   public configure(consumer: MiddlewareConsumer) {
@@ -49,5 +51,4 @@ export class AppModule {
       .apply(AuthMiddleware)
       .forRoutes({ path: '*', method: RequestMethod.ALL });
   }
-
 }

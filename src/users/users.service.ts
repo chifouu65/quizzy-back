@@ -1,8 +1,13 @@
+/* eslint-disable prettier/prettier */
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import * as admin from 'firebase-admin';
 
 @Injectable()
 export class UsersService {
+  /**
+   * @param req 
+   * @returns 
+   */
   me(req: any) {
     const user = req.user;
     if (!user) {
@@ -11,6 +16,11 @@ export class UsersService {
     return user;
   }
 
+  /**
+   * Permet de créer un utilisateur
+   * @param req 
+   * @returns 
+   */
   async create(req: { email: string; password: string }) {
     try {
       const userRecord = await admin.auth().createUser({

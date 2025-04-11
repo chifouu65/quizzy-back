@@ -9,7 +9,7 @@ import {
   MessageBody,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { executionRooms, ExecutionRoom } from './interfaces/execution-room.interface';
+import { executionRooms } from './interfaces/execution-room.interface';
 
 // Types
 interface JoinMessage {
@@ -53,7 +53,9 @@ export class QuizGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() message: JoinMessage,
   ) {
     const { executionId } = message.data;
-    this.logger.log(`Client ${client.id} demande à rejoindre la session ${executionId}`);
+    this.logger.log(
+      `Client ${client.id} demande à rejoindre la session ${executionId}`,
+    );
 
     if (!this.validateSession(executionId, client)) {
       return;
@@ -75,7 +77,9 @@ export class QuizGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() message: LeaveMessage,
   ) {
     const { executionId } = message.data;
-    this.logger.log(`Client ${client.id} quitte volontairement la session ${executionId}`);
+    this.logger.log(
+      `Client ${client.id} quitte volontairement la session ${executionId}`,
+    );
 
     client.leave(executionId);
     this.removeClientFromSession(client, executionId);
@@ -119,7 +123,9 @@ export class QuizGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // Supprimer un client d’une session spécifique
   private removeClientFromSession(client: Socket, executionId: string) {
     const session = executionRooms.get(executionId);
-    const toRemove = Array.from(session.participants).find((s) => s.id === client.id);
+    const toRemove = Array.from(session.participants).find(
+      (s) => s.id === client.id,
+    );
     if (toRemove) {
       session.participants.delete(toRemove);
     }

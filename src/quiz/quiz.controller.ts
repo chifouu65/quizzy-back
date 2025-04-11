@@ -35,7 +35,6 @@ export class QuizController {
    */
   @Get()
   async getUserQuizzes(@Request() req: RequestWithUser) {
-    console.log('getUserQuizzes');
     try {
       if (!req.user || !req.user.uid) {
         throw new UnauthorizedException('User not authenticated');
@@ -69,7 +68,6 @@ export class QuizController {
     @Body() createQuizDto: CreateQuizDto,
     @Request() req: RequestWithUser,
   ) {
-    console.log('createQuiz');
     try {
       if (!req.user || !req.user.uid) {
         throw new UnauthorizedException('User not authenticated');
@@ -96,7 +94,6 @@ export class QuizController {
    */
   @Get(':id')
   async getQuizById(@Param('id') id: string, @Request() req: RequestWithUser) {
-    console.log('getQuizById');
     try {
       if (!req.user || !req.user.uid) {
         throw new UnauthorizedException('User not authenticated');
@@ -133,7 +130,6 @@ export class QuizController {
     @Body() updateQuizDto: any,
     @Request() req: RequestWithUser,
   ) {
-    console.log('updateQuiz');
     try {
       if (!req.user || !req.user.uid) {
         throw new UnauthorizedException('User not authenticated');
@@ -168,7 +164,6 @@ export class QuizController {
     @Body() question: CreateQuestionDto,
     @Request() req: RequestWithUser,
   ) {
-    console.log('addQuestion');
     try {
       if (!req.user || !req.user.uid) {
         throw new UnauthorizedException('User not authenticated');
@@ -216,7 +211,6 @@ export class QuizController {
     @Body() updateQuestionDto: any,
     @Req() req: RequestWithUser,
   ): Promise<void> {
-    console.log('updateQuestion');
     if (!req.user || !req.user.uid) {
       throw new UnauthorizedException('User not authenticated');
     }

@@ -8,34 +8,23 @@ import { Quiz } from './models/quiz.model';
 import { CreateQuizDto } from './dto/create-quiz.dto';
 import * as admin from 'firebase-admin';
 import { CreateQuestionDto } from './dto/create-question.dto';
-
-//import { updateQuizDto } from './dto/update-quiz.dto';
+import { executionRooms, ExecutionRoom } from './interfaces/execution-room.interface';
 
 @Injectable()
 export class QuizService {
   private readonly QUIZ_COLLECTION = 'quizzes';
 
-  /** 🔹 Récupère tous les quiz de l'utilisateur */
-  async getUserQuizzes(
-    userId: string,
-  ): Promise<{ id: string; title: string; _links?: { start?: string } }[]> {
+  async getUserQuizzes(userId: string): Promise<{ id: string; title: string; _links?: { start?: string } }[]> {
     try {
       const quizzesRef = admin.firestore().collection(this.QUIZ_COLLECTION);
       const snapshot = await quizzesRef.where('ownerId', '==', userId).get();
 
       return snapshot.docs.map((doc) => {
         const quiz = { id: doc.id, ...doc.data() } as Quiz;
-        const result: any = {
-          id: quiz.id,
-          title: quiz.title,
-        };
-
+        const result: any = { id: quiz.id, title: quiz.title };
         if (this.isQuizStartable(quiz)) {
-          result._links = {
-            start: `http://localhost:3000/api/quiz/${quiz.id}/start`,
-          };
+          result._links = { start: `http://localhost:3000/api/quiz/${quiz.id}/start` };
         }
-
         return result;
       });
     } catch (error) {
@@ -43,14 +32,9 @@ export class QuizService {
     }
   }
 
-  /** 🔹 Crée un nouveau quiz */
-  async createQuiz(
-    createQuizDto: CreateQuizDto,
-    userId: string,
-  ): Promise<Quiz> {
+  async createQuiz(createQuizDto: CreateQuizDto, userId: string): Promise<Quiz> {
     try {
       const quizRef = admin.firestore().collection(this.QUIZ_COLLECTION).doc();
-
       await quizRef.set({
         title: createQuizDto.title.trim(),
         description: createQuizDto.description?.trim(),
@@ -58,7 +42,6 @@ export class QuizService {
         createdAt: admin.firestore.Timestamp.now(),
         updatedAt: admin.firestore.Timestamp.now(),
       });
-
       return {
         id: quizRef.id,
         title: createQuizDto.title.trim(),
@@ -68,35 +51,17 @@ export class QuizService {
         updatedAt: admin.firestore.Timestamp.now(),
       } as Quiz;
     } catch (error) {
-      throw error instanceof BadRequestException
-        ? error
-        : new Error(`Failed to create quiz: ${error.message}`);
+      throw error instanceof BadRequestException ? error : new Error(`Failed to create quiz: ${error.message}`);
     }
   }
 
-  /**
-   * 🔹 Récupère un quiz par son ID
-   * @param quizId - L'ID du quiz à récupérer
-   * @param userId - L'ID de l'utilisateur
-   * @returns Le quiz récupéré
-   */
   async getQuizById(quizId: string, userId: string): Promise<Quiz> {
     try {
-      const quizDoc = await admin
-        .firestore()
-        .collection(this.QUIZ_COLLECTION)
-        .doc(quizId)
-        .get();
-
-      if (!quizDoc.exists) {
-        throw new NotFoundException('Quiz not found');
-      }
+      const quizDoc = await admin.firestore().collection(this.QUIZ_COLLECTION).doc(quizId).get();
+      if (!quizDoc.exists) throw new NotFoundException('Quiz not found');
 
       const quizData = quizDoc.data();
-
-      if (quizData.ownerId !== userId) {
-        throw new NotFoundException('Quiz not found');
-      }
+      if (quizData.ownerId !== userId) throw new NotFoundException('Quiz not found');
 
       return {
         id: quizDoc.id,
@@ -108,232 +73,97 @@ export class QuizService {
         questions: quizData.questions || [],
       } as Quiz;
     } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
+      if (error instanceof NotFoundException) throw error;
       throw new Error(`Failed to get quiz: ${error.message}`);
     }
   }
 
-  /**
-   * 🔹 Met à jour un quiz
-   * @param quizId - L'ID du quiz à mettre à jour
-   * @param updateQuizDto - Les données à mettre à jour
-   * @param userId - L'ID de l'utilisateur
-   * @returns Le quiz mis à jour
-   */
   async updateQuiz(quizId: string, updateQuizDto: any, userId: string) {
     try {
-      const quizRef = admin
-        .firestore()
-        .collection(this.QUIZ_COLLECTION)
-        .doc(quizId);
-
+      const quizRef = admin.firestore().collection(this.QUIZ_COLLECTION).doc(quizId);
       const quizDoc = await quizRef.get();
 
       if (!quizDoc.exists || quizDoc.data().ownerId !== userId) {
         throw new NotFoundException('Quiz not found');
       }
 
-      await quizRef.update({
-        title: updateQuizDto[0].value,
-      });
-
+      await quizRef.update({ title: updateQuizDto[0].value });
       return quizRef.get();
     } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
+      if (error instanceof NotFoundException) throw error;
       throw new Error(`Failed to update quiz: ${error.message}`);
     }
   }
 
-  /**
-   * 🔹 Ajoute une question à un quiz
-   * @param quizId - L'ID du quiz
-   * @param userId - L'ID de l'utilisateur
-   * @param question - La question à ajouter
-   * @returns L'ID de la question ajoutée
-   */
-  async addQuestion(
-    quizId: string,
-    userId: string,
-    question: CreateQuestionDto,
-  ): Promise<string> {
+  async addQuestion(quizId: string, userId: string, question: CreateQuestionDto): Promise<string> {
     try {
-      const quizRef = admin
-        .firestore()
-        .collection(this.QUIZ_COLLECTION)
-        .doc(quizId);
-
+      const quizRef = admin.firestore().collection(this.QUIZ_COLLECTION).doc(quizId);
       const quizDoc = await quizRef.get();
 
-      if (!quizDoc.exists || quizDoc.data().ownerId !== userId) {
-        throw new NotFoundException('Quiz not found');
-      }
+      if (!quizDoc.exists || quizDoc.data().ownerId !== userId) throw new NotFoundException('Quiz not found');
 
-      // Récupérer les questions existantes
       const quizData = quizDoc.data();
       const questions = quizData.questions || [];
 
-      // Créer la nouvelle question avec un ID unique
       const newQuestion = {
-        id: admin.firestore().collection('temp').doc().id, // Génère un ID unique
+        id: admin.firestore().collection('temp').doc().id,
         title: question.title,
         answers: question.answers,
         createdAt: admin.firestore.Timestamp.now(),
         updatedAt: admin.firestore.Timestamp.now(),
       };
 
-      // Ajouter la nouvelle question à la liste
       questions.push(newQuestion);
-
-      // Mettre à jour le document avec la nouvelle liste de questions
-      await quizRef.update({
-        questions: questions,
-        updatedAt: admin.firestore.Timestamp.now(),
-      });
-
-      console.log(`✅ Question ajoutée avec succès, ID: ${newQuestion.id}`);
-      return newQuestion.id; // Retourne l'ID de la nouvelle question
+      await quizRef.update({ questions, updatedAt: admin.firestore.Timestamp.now() });
+      return newQuestion.id;
     } catch (error) {
-      console.error(`🚨 Erreur lors de l'ajout de la question:`, error);
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
+      if (error instanceof NotFoundException) throw error;
       throw new Error(`Failed to add question: ${error.message}`);
     }
   }
 
-  async updateQuestion(
-    quizId: string,
-    questionId: string,
-    updateQuestionDto: any,
-    userId: string,
-  ): Promise<void> {
+  async updateQuestion(quizId: string, questionId: string, updateQuestionDto: any, userId: string): Promise<void> {
     try {
-      const quizRef = admin
-        .firestore()
-        .collection(this.QUIZ_COLLECTION)
-        .doc(quizId);
-
+      const quizRef = admin.firestore().collection(this.QUIZ_COLLECTION).doc(quizId);
       const quizDoc = await quizRef.get();
 
-      if (!quizDoc.exists || quizDoc.data().ownerId !== userId) {
-        throw new NotFoundException('Quiz not found');
-      }
+      if (!quizDoc.exists || quizDoc.data().ownerId !== userId) throw new NotFoundException('Quiz not found');
 
-      const quizData = quizDoc.data();
-      const questions = quizData.questions || [];
+      const questions = quizDoc.data().questions || [];
+      const index = questions.findIndex((q) => q.id === questionId);
+      if (index === -1) throw new NotFoundException('Question not found');
 
-      const questionIndex = questions.findIndex((q) => q.id === questionId);
-      if (questionIndex === -1) {
-        throw new NotFoundException('Question not found');
-      }
-
-      questions[questionIndex] = {
-        ...questions[questionIndex],
+      questions[index] = {
+        ...questions[index],
         ...updateQuestionDto,
         updatedAt: admin.firestore.Timestamp.now(),
       };
 
-      await quizRef.update({
-        questions: questions,
-        updatedAt: admin.firestore.Timestamp.now(),
-      });
-
-      console.log(`✅ Question mise à jour avec succès, ID: ${questionId}`);
+      await quizRef.update({ questions, updatedAt: admin.firestore.Timestamp.now() });
     } catch (error) {
-      console.error(`🚨 Erreur lors de la mise à jour de la question:`, error);
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
+      if (error instanceof NotFoundException) throw error;
       throw new Error(`Failed to update question: ${error.message}`);
     }
   }
 
-  /**
-   * 🔹 Vérifie si un quiz est prêt à être commencé
-   * @param quiz - Le quiz à vérifier
-   * @returns true si le quiz est prêt à être commencé, false sinon
-   */
-  private isQuizStartable(quiz: Quiz): boolean {
-    // 1. Vérifier que le titre n'est pas vide
-    if (!quiz.title?.trim()) {
-      return false;
-    }
-
-    // 2. Vérifier qu'il y a au moins une question
-    if (!quiz.questions?.length) {
-      return false;
-    }
-
-    // 3. Vérifier que chaque question est valide
-    return quiz.questions.every((question) => {
-      // Vérifier le titre de la question
-      if (!question.title?.trim()) {
-        return false;
-      }
-
-      // Vérifier qu'il y a au moins 2 réponses
-      if (!question.answers?.length || question.answers.length < 2) {
-        return false;
-      }
-
-      // Compter les réponses correctes
-      const correctAnswers = question.answers.filter(
-        (answer) => answer.isCorrect,
-      ).length;
-
-      // Il doit y avoir exactement une réponse correcte
-      return correctAnswers === 1;
-    });
-  }
-
-  /**
-   * 🔹 Génère un ID d'exécution
-   * @returns L'ID d'exécution
-   */
-  private generateExecutionId(): string {
-    // Génère une chaîne de 6 caractères aléatoires
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let result = '';
-    for (let i = 0; i < 6; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
-  }
-
-  /**
-   * 🔹 Commence un quiz
-   * @param quizId - L'ID du quiz à commencer
-   * @param userId - L'ID de l'utilisateur
-   * @returns L'ID de l'exécution
-   */
   async startQuiz(quizId: string, userId: string): Promise<string> {
     try {
-      const quizDoc = await admin
-        .firestore()
-        .collection(this.QUIZ_COLLECTION)
-        .doc(quizId)
-        .get();
-
-      if (!quizDoc.exists || quizDoc.data().ownerId !== userId) {
-        throw new NotFoundException('Quiz not found');
-      }
+      const quizDoc = await admin.firestore().collection(this.QUIZ_COLLECTION).doc(quizId).get();
+      if (!quizDoc.exists || quizDoc.data().ownerId !== userId) throw new NotFoundException('Quiz not found');
 
       const quiz = { id: quizDoc.id, ...quizDoc.data() } as Quiz;
-
-      if (!this.isQuizStartable(quiz)) {
-        throw new BadRequestException('Quiz is not ready to be started');
-      }
+      if (!this.isQuizStartable(quiz)) throw new BadRequestException('Quiz is not ready to be started');
 
       const executionId = this.generateExecutionId();
+      executionRooms.set(executionId, {
+        quizId,
+        ownerId: userId,
+        participants: new Set(),
+      });
 
-      // Créer l'exécution dans Firestore avec la structure exacte attendue par le front
       await admin.firestore().collection('executions').doc(executionId).set({
         quizId,
-        quiz: quiz, // Le front attend l'objet quiz complet
+        quiz,
         status: 'waiting',
         createdAt: admin.firestore.Timestamp.now(),
         ownerId: userId,
@@ -343,104 +173,57 @@ export class QuizService {
 
       return executionId;
     } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException
-      ) {
-        throw error;
-      }
+      if (error instanceof NotFoundException || error instanceof BadRequestException) throw error;
       throw new Error(`Failed to start quiz: ${error.message}`);
     }
   }
 
-  /**
-   * Permet de supprimer un quiz
-   * @param quizId
-   * @param userId
-   */
+  private isQuizStartable(quiz: Quiz): boolean {
+    if (!quiz.title?.trim()) return false;
+    if (!quiz.questions?.length) return false;
+    return quiz.questions.every((q) => q.title?.trim() && q.answers?.length >= 2 && q.answers.filter((a) => a.isCorrect).length === 1);
+  }
+
+  private generateExecutionId(): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 6; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  }
+
   async deleteQuiz(quizId: string, userId: string): Promise<void> {
     try {
-      const quizDoc = await admin
-        .firestore()
-        .collection(this.QUIZ_COLLECTION)
-        .doc(quizId)
-        .get();
-
-      if (!quizDoc.exists) {
-        throw new NotFoundException('Quiz not found');
-      }
+      const quizDoc = await admin.firestore().collection(this.QUIZ_COLLECTION).doc(quizId).get();
+      if (!quizDoc.exists) throw new NotFoundException('Quiz not found');
 
       const quizData = quizDoc.data();
-      if (quizData.ownerId !== userId) {
-        throw new UnauthorizedException('Not authorized to delete this quiz');
-      }
+      if (quizData.ownerId !== userId) throw new UnauthorizedException('Not authorized');
 
-      await admin
-        .firestore()
-        .collection(this.QUIZ_COLLECTION)
-        .doc(quizId)
-        .delete();
+      await admin.firestore().collection(this.QUIZ_COLLECTION).doc(quizId).delete();
     } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof UnauthorizedException
-      ) {
-        throw error;
-      }
+      if (error instanceof NotFoundException || error instanceof UnauthorizedException) throw error;
       throw new Error(`Failed to delete quiz: ${error.message}`);
     }
   }
 
-  /**
-   * 🔹 Supprime une question d'un quiz
-   * @param quizId - L'ID du quiz
-   * @param questionId - L'ID de la question à supprimer
-   * @param userId - L'ID de l'utilisateur
-   */
-  async deleteQuestion(
-    quizId: string,
-    questionId: string,
-    userId: string,
-  ): Promise<void> {
+  async deleteQuestion(quizId: string, questionId: string, userId: string): Promise<void> {
     try {
-      const quizDoc = await admin
-        .firestore()
-        .collection(this.QUIZ_COLLECTION)
-        .doc(quizId)
-        .get();
-
-      if (!quizDoc.exists) {
-        throw new NotFoundException('Quiz not found');
-      }
+      const quizDoc = await admin.firestore().collection(this.QUIZ_COLLECTION).doc(quizId).get();
+      if (!quizDoc.exists) throw new NotFoundException('Quiz not found');
 
       const quizData = quizDoc.data();
-      if (quizData.ownerId !== userId) {
-        throw new UnauthorizedException(
-          'Not authorized to delete this question',
-        );
-      }
+      if (quizData.ownerId !== userId) throw new UnauthorizedException('Not authorized');
 
       const questions = quizData.questions || [];
-      const questionIndex = questions.findIndex((q) => q.id === questionId);
+      const index = questions.findIndex((q) => q.id === questionId);
+      if (index === -1) throw new NotFoundException('Question not found');
 
-      if (questionIndex === -1) {
-        throw new NotFoundException('Question not found');
-      }
-
-      questions.splice(questionIndex, 1);
-
-      await admin
-        .firestore()
-        .collection(this.QUIZ_COLLECTION)
-        .doc(quizId)
-        .update({ questions });
+      questions.splice(index, 1);
+      await admin.firestore().collection(this.QUIZ_COLLECTION).doc(quizId).update({ questions });
     } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof UnauthorizedException
-      ) {
-        throw error;
-      }
+      if (error instanceof NotFoundException || error instanceof UnauthorizedException) throw error;
       throw new Error(`Failed to delete question: ${error.message}`);
     }
   }

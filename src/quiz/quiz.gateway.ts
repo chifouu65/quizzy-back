@@ -9,9 +9,9 @@ import {
   MessageBody,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { executionRooms } from './interfaces/execution-room.interface';
+import { executionRooms, ExecutionRoom } from './interfaces/execution-room.interface';
+import * as admin from 'firebase-admin';
 
-// Types
 interface JoinMessage {
   name: string;
   data: {
@@ -26,17 +26,12 @@ interface LeaveMessage {
 }
 
 @WebSocketGateway({
-  cors: {
-    origin: '*',
-  },
+  cors: { origin: '*' },
 })
 export class QuizGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly logger = new Logger(QuizGateway.name);
+  @WebSocketServer() server: Server;
 
-  @WebSocketServer()
-  server: Server;
-
-  // Gestion de connexion
   handleConnection(client: Socket) {
     this.logger.log(`Client connecté: ${client.id}`);
   }
@@ -46,46 +41,41 @@ export class QuizGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.removeClientFromAllSessions(client);
   }
 
-  // Rejoindre une session
   @SubscribeMessage('join')
-  handleJoin(
+  async handleJoin(
     @ConnectedSocket() client: Socket,
-    @MessageBody() message: JoinMessage,
+    @MessageBody() data: { executionId: string } | { name: string; data: { executionId: string } },
   ) {
-    const { executionId } = message.data;
-    this.logger.log(
-      `Client ${client.id} demande à rejoindre la session ${executionId}`,
-    );
+    const executionId = 'data' in data ? data.data.executionId : data.executionId;
+    this.logger.log(`Client ${client.id} demande à rejoindre la session ${executionId}`);
 
-    if (!this.validateSession(executionId, client)) {
-      return;
-    }
+    if (!this.validateSession(executionId, client)) return;
 
     const session = executionRooms.get(executionId);
     session.participants.add(client);
+    await client.join(executionId);
 
-    client.join(executionId);
+    const isWebSocket = 'data' in data;
+    this.sendSessionDetails(client, executionId, isWebSocket);
+    this.updateSessionStatus(executionId, isWebSocket);
 
-    this.sendSessionDetails(client, executionId);
-    this.updateSessionStatus(executionId);
+    await admin.firestore()
+      .collection('executions')
+      .doc(executionId)
+      .update({ participants: session.participants.size });
   }
 
-  // Quitter volontairement
   @SubscribeMessage('leave')
   handleLeave(
     @ConnectedSocket() client: Socket,
     @MessageBody() message: LeaveMessage,
   ) {
     const { executionId } = message.data;
-    this.logger.log(
-      `Client ${client.id} quitte volontairement la session ${executionId}`,
-    );
-
+    this.logger.log(`Client ${client.id} quitte volontairement la session ${executionId}`);
     client.leave(executionId);
     this.removeClientFromSession(client, executionId);
   }
 
-  // Vérifie si une session existe
   private validateSession(executionId: string, client: Socket): boolean {
     if (!executionRooms.has(executionId)) {
       this.logger.warn(`Session ${executionId} non trouvée`);
@@ -98,47 +88,43 @@ export class QuizGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return true;
   }
 
-  // Envoie les infos de la session au client
-  private sendSessionDetails(client: Socket, executionId: string) {
+  private sendSessionDetails(client: Socket, executionId: string, isWebSocket = false) {
     const session = executionRooms.get(executionId);
-    this.logger.log(`Envoi des détails de session à ${client.id}`);
-    client.emit('joinDetails', {
-      name: 'joinDetails',
-      data: { quizTitle: session.quizTitle },
-    });
-  }
+    const payload = { quizTitle: session.quizTitle };
 
-  // Mise à jour du statut de la session
-  private updateSessionStatus(executionId: string) {
-    const session = executionRooms.get(executionId);
-    const participantCount = session.participants.size;
-    this.logger.log(`Mise à jour du statut: ${participantCount} participants`);
-
-    this.server.to(executionId).emit('status', {
-      name: 'status',
-      data: { status: 'waiting', participants: participantCount },
-    });
-  }
-
-  // Supprimer un client d’une session spécifique
-  private removeClientFromSession(client: Socket, executionId: string) {
-    const session = executionRooms.get(executionId);
-    const toRemove = Array.from(session.participants).find(
-      (s) => s.id === client.id,
-    );
-    if (toRemove) {
-      session.participants.delete(toRemove);
+    if (isWebSocket) {
+      client.emit('message', { name: 'joinDetails', data: payload });
+    } else {
+      client.emit('joinDetails', payload);
     }
-
-    this.updateSessionStatus(executionId);
   }
 
-  // Supprimer un client de toutes les sessions
+  private updateSessionStatus(executionId: string, isWebSocket = false) {
+    const session = executionRooms.get(executionId);
+    const statusPayload = {
+      status: 'waiting',
+      participants: session.participants.size,
+    };
+
+    if (isWebSocket) {
+      this.server.to(executionId).emit('message', { name: 'status', data: statusPayload });
+    } else {
+      this.server.to(executionId).emit('status', statusPayload);
+    }
+  }
+
+  private removeClientFromSession(client: Socket, executionId: string, isWebSocket = false) {
+    const session = executionRooms.get(executionId);
+    session.participants.delete(client);
+    this.updateSessionStatus(executionId, isWebSocket);
+  }
+
   private removeClientFromAllSessions(client: Socket) {
     executionRooms.forEach((room, executionId) => {
-      if (Array.from(room.participants).some((s) => s.id === client.id)) {
+      if (room.participants.has(client)) {
         this.removeClientFromSession(client, executionId);
       }
     });
   }
 }
+

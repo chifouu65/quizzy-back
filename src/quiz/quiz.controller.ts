@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import {
   Controller,
   Get,
@@ -67,6 +68,7 @@ export class QuizController {
   async createQuiz(
     @Body() createQuizDto: CreateQuizDto,
     @Request() req: RequestWithUser,
+    @Res() response: Response,
   ) {
     try {
       if (!req.user || !req.user.uid) {
@@ -75,7 +77,7 @@ export class QuizController {
 
       const userId = req.user.uid;
       const quiz = await this.quizService.createQuiz(createQuizDto, userId);
-      return { data: quiz };
+      response.setHeader('Location', `http://localhost:3000/api/quiz/${quiz.id}`).send();
     } catch (error) {
       if (error instanceof UnauthorizedException) {
         throw error;

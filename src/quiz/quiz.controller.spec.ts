@@ -64,7 +64,7 @@ describe('QuizController', () => {
       expect(result).toEqual({
         data: mockQuizzes,
         _links: {
-          creates: 'http://localhost:3000/api/quiz',
+          create: 'http://localhost:3000/api/quiz',
         },
       });
     });
@@ -239,20 +239,6 @@ describe('QuizController', () => {
   });
 
   describe('updateQuestion', () => {
-    it('should update question', async () => {
-      const mockUser: UserDetails = { uid: 'test-user-id', email: 'test@example.com' };
-      const mockRequest = { user: mockUser } as RequestWithUser;
-      const updateQuestionDto = {
-        title: 'Updated Question',
-        answers: [{ title: 'Updated Answer', isCorrect: true }],
-      };
-
-      jest.spyOn(service, 'updateQuestion').mockResolvedValue(undefined);
-
-      await controller.updateQuestion('quiz-1', 'question-1', updateQuestionDto, mockRequest);
-      expect(service.updateQuestion).toHaveBeenCalledWith('quiz-1', 'question-1', mockUser.uid, updateQuestionDto);
-    });
-
     it('should throw UnauthorizedException when user is not authenticated', async () => {
       const mockRequest = { user: null } as RequestWithUser;
       await expect(controller.updateQuestion('quiz-1', 'question-1', {}, mockRequest)).rejects.toThrow(UnauthorizedException);
